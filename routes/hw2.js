@@ -13,14 +13,11 @@ const wordSchema = new Schema({
 
 const Word = mongoose.model('Word', wordSchema);
 
-/* GET new db item from url */
-router.get('/:word', function(req, res, next) {
-    const word = req.params.word;
-    let arr;
+const getter = (res, word) => { //for post and get requests
     Word.find({string: word}, (err, docs) => { //find if in db already
-        arr = docs; //store matching docs in array
-    }).then(() => {
-        if (JSON.stringify(arr) === "[]"){ //if new entry
+        if (err) {
+            console.log(err);
+        } else if (!docs.length) { //if not in db
             const entry = new Word({string: word, length: word.length});
             entry.save((err) => { //save entry to db
                 if (err) {
@@ -30,13 +27,19 @@ router.get('/:word', function(req, res, next) {
                     console.log('Added to DB');
                 }
             });
-        } else { //if word is already in db 
-            arr.forEach((element) => { //send out previous occurence
+        } else { //if already in db
+            docs.forEach((element) => { //send out previous occurence
                 res.json({string: element.string, length: element.length});
                 console.log('Read from DB');
             });
         }
     });
+}
+
+/* GET new db item from url */
+router.get('/:word', function(req, res, next) {
+    const word = req.params.word;
+    getter(res, word);
 });
 
 router.get('/', (req, res, next) => { //sends entire collection
@@ -47,49 +50,23 @@ router.get('/', (req, res, next) => { //sends entire collection
 
 router.post('/', (req, res) => {
     const word = req.body.string;  //take string from body
-    let arr;
-    Word.find({string: word}, (err, docs) => { //find if in db already
-        arr = docs; //store matching docs in array
-    }).then(() => {
-        if (JSON.stringify(arr) === "[]"){ //if new entry
-            const entry = new Word({string: word, length: word.length});
-            entry.save((err) => { //save entry to db
-                if (err) {
-                    console.log(err);
-                } else { //send out
-                    res.json({string: word, length: word.length}); 
-                    console.log('Added to DB');
-                }
-            });
-        } else { //if word is already in db 
-            arr.forEach((element) => { //send out previous occurence
-                res.json({string: element.string, length: element.length});
-                console.log('Read from DB');
-            });
-        }
-    });
+    getter(res, word);
 });
 
 router.delete('/:word', (req, res) => {
     const word = req.params.word;
-    let arr;
-    Word.find({string: word}, (err, docs) => { //find if in db already
-        arr = docs; //store matching docs in array
-    }).then(() => {
-        if (JSON.stringify(arr) === "[]"){ //if not in db send back message
-            res.json({result: 'string not found'});
-            console.log('String not found in DB');
-        } else { //if word is in db 
-            Word.deleteOne((err) => { //delete
-                if (err) {
-                    console.log(err);
-                } else { //send out json message
-                    res.json({result: 'document deleted'}); 
-                    console.log('Deleted from DB');
-                }
-            });
-        }
-    });
+    Word.find({string: word})
+        .remove((err, removed) => {
+            if (err) { //error removing
+                console.log(err);
+            } else if (removed.n === 0){ //if not in db send nf message
+                res.json({result: 'string not found'});
+                console.log('String not found in DB');
+            } else { //if word is in db then send deleted message
+                res.json({result: 'document deleted'}); 
+                console.log('Deleted from DB');
+            }
+        });
 });
 
 module.exports = router;
